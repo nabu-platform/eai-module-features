@@ -9,6 +9,7 @@ import java.util.Map;
 
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.managers.base.BaseJAXBGUIManager;
+import be.nabu.eai.developer.util.EAIDeveloperUtils;
 import be.nabu.eai.repository.api.Feature;
 import be.nabu.eai.repository.api.FeaturedArtifact;
 import be.nabu.eai.repository.resources.RepositoryEntry;
@@ -46,7 +47,7 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 		Map<String, Feature> features = new HashMap<String, Feature>();
 		// first we build an overview of all features
 		for (FeaturedArtifact artifact : instance.getRepository().getArtifacts(FeaturedArtifact.class)) {
-			List<Feature> artifactFeatures = artifact.getFeatures();
+			List<Feature> artifactFeatures = artifact.getAvailableFeatures();
 			if (artifactFeatures != null) {
 				for (Feature feature : artifactFeatures) {
 					if (!features.containsKey(feature.getName()) || features.get(feature.getName()).getDescription() == null) {
@@ -55,6 +56,11 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 				}
 			}
 		}
+		display(instance, pane, features);
+	}
+
+	// we don't want to recalculate all the features every time you change something
+	private void display(FeatureSet instance, Pane pane, Map<String, Feature> features) {
 		List<String> list = new ArrayList<String>();
 		list.addAll(features.keySet());
 		
@@ -63,12 +69,33 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 		}
 		
 		VBox box = new VBox();
+		box.setPadding(new Insets(10));
+		
+		
+		TextField context = new TextField(instance.getConfig().getContext());
+		context.textProperty().addListener(new ChangeListener<String>() {
+			@Override
+			public void changed(ObservableValue<? extends String> arg0, String arg1, String arg2) {
+				instance.getConfig().setContext(arg2 != null && !arg2.trim().isEmpty() ? arg2.trim() : null);
+				MainController.getInstance().setChanged();
+			}
+		});
+		HBox newHBox = EAIDeveloperUtils.newHBox("Context", context);
+		newHBox.setPadding(new Insets(10, 0, 10, 0));
+		box.getChildren().add(newHBox);
+		
+		if (!instance.getConfig().getFeatures().isEmpty()) {
+			Label labelEnabled = new Label("Enabled features");
+			VBox.setMargin(labelEnabled, new Insets(10, 0, 10, 0));
+			box.getChildren().add(labelEnabled);
+		}
+		
 		Iterator<String> iterator = instance.getConfig().getFeatures().iterator();
 		// first we draw the already enabled features
 		while (iterator.hasNext()) {
 			String enabled = iterator.next();
 			if (features.containsKey(enabled)) {
-				drawFeature(instance, pane, box, features.get(enabled), instance.getConfig().getFeatures(), null);
+				drawFeature(instance, pane, box, features.get(enabled), instance.getConfig().getFeatures(), null, features);
 				// don't list it below
 				list.remove(enabled);
 			}
@@ -77,13 +104,26 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 				MainController.getInstance().setChanged();
 			}
 		}
-		TextField search = new TextField();
-		search.setPromptText("Search");
-		VBox.setMargin(search, new Insets(10));
 		
-		// then we draw the currently disabled features
-		for (String disabled : list) {
-			drawFeature(instance, pane, box, features.get(disabled), instance.getConfig().getFeatures(), null);
+		if (!list.isEmpty()) {
+			Label labelAvailable = new Label("Available features");
+			VBox.setMargin(labelAvailable, new Insets(10, 0, 10, 0));
+			box.getChildren().add(labelAvailable);
+			
+			TextField search = new TextField();
+			search.setPromptText("Search");
+			VBox.setMargin(search, new Insets(10, 0, 10, 0));
+			box.getChildren().add(search);
+			
+			// then we draw the currently disabled features
+			for (String disabled : list) {
+				drawFeature(instance, pane, box, features.get(disabled), instance.getConfig().getFeatures(), search, features);
+			}
+		}
+		else {
+			Label noData = new Label("No features are currently available");
+			noData.setPadding(new Insets(10, 0, 10, 0));
+			box.getChildren().add(noData);
 		}
 		
 		pane.getChildren().clear();
@@ -95,19 +135,21 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 		AnchorPane.setTopAnchor(box, 0d);
 	}
 	
-	private void drawFeature(FeatureSet instance, Pane pane, VBox parent, Feature feature, List<String> enabled, TextField search) {
+	private void drawFeature(FeatureSet instance, Pane pane, VBox parent, Feature feature, List<String> enabled, TextField search, Map<String, Feature> features) {
 		HBox box = new HBox();
 		
-		search.selectedTextProperty().addListener(new ChangeListener<String>() {
-			@Override
-			public void changed(ObservableValue<? extends String> arg0, String arg1, String arg2) {
-				boolean matches = arg2 == null || arg2.trim().isEmpty()
-						|| feature.getName().matches("(?s)(?i).*" + arg2.replace("*", ".*") + ".*")
-						|| feature.getDescription().matches("(?s)(?i).*" + arg2.replace("*", ".*") + ".*");
-				box.setVisible(matches);
-				box.setManaged(matches);
-			}
-		});
+		if (search != null) {
+			search.textProperty().addListener(new ChangeListener<String>() {
+				@Override
+				public void changed(ObservableValue<? extends String> arg0, String arg1, String arg2) {
+					boolean matches = arg2 == null || arg2.trim().isEmpty()
+							|| (feature.getName() != null && feature.getName().matches("(?s)(?i).*" + arg2.replace("*", ".*") + ".*"))
+							|| (feature.getDescription() != null && feature.getDescription().matches("(?s)(?i).*" + arg2.replace("*", ".*") + ".*"));
+					box.setVisible(matches);
+					box.setManaged(matches);
+				}
+			});
+		}
 		
 		CheckBox check = new CheckBox();
 		check.setSelected(enabled.contains(feature.getName()));
@@ -118,8 +160,13 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 					if (!enabled.contains(feature.getName())) {
 						enabled.add(feature.getName());
 						MainController.getInstance().setChanged();
-						display(instance, pane);
+						display(instance, pane, features);
 					}
+				}
+				else {
+					enabled.remove(feature.getName());
+					MainController.getInstance().setChanged();
+					display(instance, pane, features);
 				}
 			}
 		});
@@ -131,5 +178,10 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 		
 		box.getChildren().addAll(check, name, description);
 		parent.getChildren().add(box);
+	}
+	
+	@Override
+	public String getCategory() {
+		return "Miscellaneous";
 	}
 }

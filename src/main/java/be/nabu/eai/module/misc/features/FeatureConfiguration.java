@@ -10,6 +10,7 @@ import be.nabu.eai.api.EnvironmentSpecific;
 public class FeatureConfiguration {
 	// the features that are enabled
 	private List<String> features;
+	private String context;
 
 	@EnvironmentSpecific
 	public List<String> getFeatures() {
@@ -18,4 +19,13 @@ public class FeatureConfiguration {
 	public void setFeatures(List<String> features) {
 		this.features = features;
 	}
+	
+	@EnvironmentSpecific
+	public String getContext() {
+		return context;
+	}
+	public void setContext(String context) {
+		this.context = context;
+	}
+	
 }
