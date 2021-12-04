@@ -6,6 +6,7 @@ import java.util.List;
 import be.nabu.eai.repository.api.FeatureConfigurator;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
+import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.resources.api.Resource;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.resources.api.TimestampedResource;
@@ -17,7 +18,8 @@ public class FeatureSet extends JAXBArtifact<FeatureConfiguration> implements Fe
 	}
 
 	@Override
-	public List<String> getEnabledFeatures() {
+	public List<String> getEnabledFeatures(Token token) {
+		// TODO: allow differentiation per "role", then use the hasRole to validate whether or not it is applicable
 		return getConfig().getFeatures();
 	}
 
