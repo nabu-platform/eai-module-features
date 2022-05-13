@@ -18,6 +18,7 @@ import be.nabu.libs.property.api.Value;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -67,6 +68,9 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 		if (instance.getConfig().getFeatures() == null) {
 			instance.getConfig().setFeatures(new ArrayList<String>());
 		}
+		if (instance.getConfig().getDisabled() == null) {
+			instance.getConfig().setDisabled(new ArrayList<String>());
+		}
 		
 		VBox box = new VBox();
 		box.setPadding(new Insets(10));
@@ -86,6 +90,7 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 		
 		if (!instance.getConfig().getFeatures().isEmpty()) {
 			Label labelEnabled = new Label("Enabled features");
+			labelEnabled.getStyleClass().add("h1");
 			VBox.setMargin(labelEnabled, new Insets(10, 0, 10, 0));
 			box.getChildren().add(labelEnabled);
 		}
@@ -95,18 +100,24 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 		while (iterator.hasNext()) {
 			String enabled = iterator.next();
 			if (features.containsKey(enabled)) {
-				drawFeature(instance, pane, box, features.get(enabled), instance.getConfig().getFeatures(), null, features);
+				drawFeature(instance, pane, box, features.get(enabled), instance.getConfig().getFeatures(), instance.getConfig().getDisabled(), null, features);
 				// don't list it below
 				list.remove(enabled);
 			}
+			// remove the feature if it no longer exists
 			else {
 				iterator.remove();
 				MainController.getInstance().setChanged();
 			}
 		}
 		
+		// update the disabled list
+		instance.getConfig().getDisabled().clear();
+		instance.getConfig().getDisabled().addAll(list);
+		
 		if (!list.isEmpty()) {
 			Label labelAvailable = new Label("Available features");
+			labelAvailable.getStyleClass().add("h1");
 			VBox.setMargin(labelAvailable, new Insets(10, 0, 10, 0));
 			box.getChildren().add(labelAvailable);
 			
@@ -117,7 +128,7 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 			
 			// then we draw the currently disabled features
 			for (String disabled : list) {
-				drawFeature(instance, pane, box, features.get(disabled), instance.getConfig().getFeatures(), search, features);
+				drawFeature(instance, pane, box, features.get(disabled), instance.getConfig().getFeatures(), instance.getConfig().getDisabled(), search, features);
 			}
 		}
 		else {
@@ -135,7 +146,7 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 		AnchorPane.setTopAnchor(box, 0d);
 	}
 	
-	private void drawFeature(FeatureSet instance, Pane pane, VBox parent, Feature feature, List<String> enabled, TextField search, Map<String, Feature> features) {
+	private void drawFeature(FeatureSet instance, Pane pane, VBox parent, Feature feature, List<String> enabled, List<String> disabled, TextField search, Map<String, Feature> features) {
 		HBox box = new HBox();
 		
 		if (search != null) {
@@ -159,24 +170,31 @@ public class FeatureSetGUIManager extends BaseJAXBGUIManager<FeatureConfiguratio
 				if (selected != null && selected) {
 					if (!enabled.contains(feature.getName())) {
 						enabled.add(feature.getName());
+						disabled.remove(feature.getName());
 						MainController.getInstance().setChanged();
 						display(instance, pane, features);
 					}
 				}
 				else {
 					enabled.remove(feature.getName());
+					disabled.add(feature.getName());
 					MainController.getInstance().setChanged();
 					display(instance, pane, features);
 				}
 			}
 		});
+		
 		Label name = new Label(feature.getName());
 		name.getStyleClass().add("feature-name");
 		
 		Label description = new Label(feature.getDescription());
 		description.getStyleClass().add("feature-description");
 		
+		name.setPadding(new Insets(0, 0, 0, 10));
+		description.setPadding(new Insets(0, 0, 0, 10));
+		
 		box.getChildren().addAll(check, name, description);
+		box.setAlignment(Pos.CENTER_LEFT);
 		parent.getChildren().add(box);
 	}
 	

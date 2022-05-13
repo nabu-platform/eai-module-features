@@ -9,7 +9,7 @@ import be.nabu.eai.api.EnvironmentSpecific;
 @XmlRootElement(name = "features")
 public class FeatureConfiguration {
 	// the features that are enabled
-	private List<String> features;
+	private List<String> features, disabled;
 	private String context;
 
 	@EnvironmentSpecific
@@ -26,6 +26,13 @@ public class FeatureConfiguration {
 	}
 	public void setContext(String context) {
 		this.context = context;
+	}
+	
+	public List<String> getDisabled() {
+		return disabled;
+	}
+	public void setDisabled(List<String> disabled) {
+		this.disabled = disabled;
 	}
 	
 }
